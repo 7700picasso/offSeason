@@ -16,18 +16,23 @@ competition Competition;
 
 // define your global instances of motors and other devices here
 brain Brain;
-motor LF(PORT1, ratio6_1, true);
-motor RF(PORT10, ratio6_1, false);
-motor LB(PORT2, ratio6_1, true);
-motor RB(PORT20, ratio6_1, false);
-inertial gyro1(PORT11);
+motor LF(PORT8, ratio18_1, false);
+motor RF(PORT10, ratio18_1, true);
+motor LB(PORT18, ratio6_1, false);
+motor RB(PORT9, ratio6_1, true);
+inertial gyro1(PORT1);
 
 float dia = 3.75;
 float gearRatio = 0.6;
 float wheelCircumference = dia * M_PI;
+
 float distanceTarget = 0;
 bool driveTaskActivate = false;
 
+float desireheading = 0;
+float angleTarget = 0;
+bool turnTaskActive = false; 
+float kp = 0.5;
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
 
@@ -44,10 +49,12 @@ void resetDrive(){
   RF.resetPosition();
   gyro1.resetRotation();
   driveTaskActivate = false;
+  turnTaskActive = false;
 
 }
 
 int driveTask() {
+  Brain.Screen.clearScreen(); 
   Brain.Screen.printAt(10, 50, "task entered"); 
 while(true){ 
     Brain.Screen.printAt(10, 50, "task started"); 
@@ -57,13 +64,14 @@ while(true){
 
   float currentDistance = getDistanceInches();
   float error = distanceTarget - currentDistance;
-  float kp = 0.67;
+  float kp = 0.9;
   float speed = error * kp;
 
   LF.spin(forward, speed, pct);
   RF.spin(forward, speed, pct);
   LB.spin(forward, speed, pct);
   RB.spin(forward, speed, pct);
+  Brain.Screen.printAt(50,150, "task running" ); 
 
 if (fabs(error) < 0.67) {
   LF.stop(brake);
@@ -71,6 +79,7 @@ if (fabs(error) < 0.67) {
   LB.stop(brake);
   RB.stop(brake);
   driveTaskActivate = false;
+  Brain.Screen.printAt(50,150, "task ended" ); 
 }
   }
 wait(20, msec);
@@ -88,7 +97,49 @@ void driveDistance(float inches) {
   }
 }
 
+int turnTask () {
+  Brain.Screen.printAt(10,50,"TASK INITIATED");
+  while(true) {
+    Brain.Screen.printAt(10,70,"TASK STARTED");
+    if (turnTaskActive){
+      Brain.Screen.printAt(10,90,"ROBOT TURNING");
+      float currentAngle = gyro1.rotation();
+      float error = angleTarget - currentAngle;
+      Brain.Screen.printAt(10,110,"ANGLE = %0.1f", currentAngle);
+      Brain.Screen.printAt(10,130,"eroror = %0.1f", error);
+      if (fabs (error)>1.5) {
+        float speed = kp*error;
+        LF.spin(forward, speed, pct);
+        RF.spin(forward, -speed, pct);
+        LB.spin(forward, speed, pct);
+        RB.spin(forward, -speed, pct);
 
+      }
+
+      else {
+        LF.stop(brake);
+        RF.stop(brake);
+        LB.stop(brake);
+        RB.stop(brake);
+        //turnTaskActive = false;
+      }
+
+
+    }
+    wait(20, msec);
+
+  }
+  return 0;
+}
+
+void turnToAngle (float degrees){
+  desireheading = degrees;
+  angleTarget = degrees;
+  turnTaskActive = true;
+  while (turnTaskActive) {
+    wait(10,msec);
+  }
+}
 /*  You may want to perform some actions before the competition starts.      */
 /*  Do them in the following function.  You must return from this function   */
 /*  or the autonomous and usercontrol tasks will not be started.  This       */
@@ -99,6 +150,9 @@ void driveDistance(float inches) {
 
 void pre_auton(void) {
   resetDrive();
+  while(gyro1.isCalibrating()){
+    wait(200, msec);
+  }
 }
 
 /*---------------------------------------------------------------------------*/
@@ -115,10 +169,18 @@ void autonomous(void) {
   // ..........................................................................
 
   task dc (driveTask);
+  task tc (turnTask);
   wait(500, msec);
+
+
   driveDistance(24);
+  turnToAngle(90);
+
+
+  tc.stop();
   dc.stop();
-  Brain.Screen.printAt(10,50, "Fina Dist: %0.1f", getDistanceInches());
+  Brain.Screen.printAt(50,50, "Fina Dist: %0.1f", getDistanceInches());
+  Brain.Screen.printAt(50,50, "Fina Dist: %0.1f", gyro1.rotation());
 
 
 
