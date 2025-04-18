@@ -17,8 +17,8 @@ brain Brain;
 motor LB(PORT11, ratio6_1, true);
 motor RB(PORT20, ratio6_1, false);
 motor LM(PORT6, ratio6_1, true);
-motor RM(PORT10, ratio6_1, false);
-inertial imu(PORT7);
+motor RM(PORT7, ratio6_1, false);
+inertial imu(PORT10);
 
 // define your global instances of motors and other devices here
 float dia = 3.25;
@@ -26,11 +26,19 @@ float gearRatio = 0.6;
 float WC = dia * M_PI;
 float distanceTarget = 0;
 bool driveTaskActive = false;
+float desiredHeading = 0;
 float turnTarget = 0;
 bool turnTaskActive = false;
 
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
+
+void stopDrive(){
+  LM.stop(brake);
+  RM.stop(brake);
+  LB.stop(brake);
+  RB.stop(brake);
+}
 
 float getDistanceInches(){
   float LMRevs = LM.position(rev) * gearRatio;
@@ -44,8 +52,9 @@ void resetDrive(){
   RM.resetPosition();
   LB.resetPosition();
   RB.resetPosition();
-  imu.resetRotation();
+  // imu.resetRotation();
   driveTaskActive = false;
+  turnTaskActive = false;
 }
 
 int driveTask(){
@@ -53,7 +62,7 @@ int driveTask(){
     if(driveTaskActive){
       float current = getDistanceInches();
       float error = distanceTarget - current;
-      float kp = 3.75;
+      float kp = 1.5;
       float speed = error * kp;
 
       LM.spin(fwd, speed, pct);
@@ -84,23 +93,27 @@ void driveDistance(float inches){
 }
 
 int turnTask(){
+  Brain.Screen.printAt(10, 50, "Task Initiated");
   while(true){
+    Brain.Screen.printAt(10, 70, "Task Started");
     if(turnTaskActive){
+      Brain.Screen.printAt(10, 90, "Robot Turning");
       float theta = imu.rotation(deg);
-      float error = turnTarget - theta;
-      float kp = 0.7;
-      float speed = error * kp;
+      float error = desiredHeading - theta;
+      float kp = 0.5;
+      // float speed = error * kp;
+      Brain.Screen.printAt(10, 110, "Angle = %0.1f", theta);
+      Brain.Screen.printAt(10, 130, "Angle = %0.1f", error);
 
-      LM.spin(fwd, speed, pct);
-      RM.spin(fwd, -speed, pct);
-      LB.spin(fwd, speed, pct);
-      RB.spin(fwd, -speed, pct);
-      
-      if(fabs(error) < 0.2){
-        LM.stop(brake);
-        LB.stop(brake);
-        RM.stop(brake);
-        RB.stop(brake);
+      if(fabs(error) > 1.5){
+        float correctionSpeed = kp * error;
+        LM.spin(fwd, correctionSpeed, pct);
+        RM.spin(fwd, -correctionSpeed, pct);
+        LB.spin(fwd, correctionSpeed, pct);
+        RB.spin(fwd, -correctionSpeed, pct);
+      }
+      else{
+        stopDrive();
         turnTaskActive = false;
       }
     }
@@ -110,7 +123,7 @@ int turnTask(){
 }
 
 void turnDistance(float degrees){
-  resetDrive();
+  desiredHeading = degrees;
   turnTarget = degrees;
   turnTaskActive = true;
   while(turnTaskActive){
@@ -124,6 +137,9 @@ void pre_auton(void) {
   // All activities that occur before the competition starts
   // Example: clearing encoders, setting servo positions, ...
   resetDrive();
+  while(imu.isCalibrating()){
+    wait(200, msec);
+  }
 }
 
 /*---------------------------------------------------------------------------*/
@@ -138,20 +154,19 @@ void pre_auton(void) {
 
 void autonomous(void) {
   // ..........................................................................
-  
-  // task dc (driveTask);
-  // wait(500, msec);
-  // driveDistance(24);
 
-  // dc.stop();
-  // Brain.Screen.printAt(10, 50, "final distance: %0.1f", getDistanceInches());
-
+  task dc (driveTask);
   task tc (turnTask);
   wait(500, msec);
+
+  driveDistance(24);
   turnDistance(90);
 
+  dc.stop();
   tc.stop();
+  
   Brain.Screen.printAt(10, 50, "final degrees: %0.1f", imu.rotation(deg));
+  Brain.Screen.printAt(10, 70, "final distance: %0.1f", getDistanceInches());
 
   // ..........................................................................
 }

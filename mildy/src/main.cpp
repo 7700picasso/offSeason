@@ -28,6 +28,10 @@ float WC = dia * M_PI;
 float distanceTarget = 0;
 bool driveTaskActive = false;
 
+float desiredHeading = 0;
+float angleTarget = 0;
+bool turnTaskActive = false;
+
 
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
@@ -43,9 +47,9 @@ float getDistanceInches() {
 void resetDrive() {
   LFM.resetPosition();
   RFM.resetPosition();
-  imu.resetRotation();
+  //imu.resetRotation();
   driveTaskActive = false;
-
+turnTaskActive = false;
 }
 
 int driveTask() {
@@ -54,7 +58,7 @@ int driveTask() {
 
   float current = getDistanceInches();
   float error = distanceTarget - current;
-  float kp = 2.5;
+  float kp = 2;
   float speed = error * kp;
 
   LFM.spin(forward, speed, pct);
@@ -62,7 +66,7 @@ int driveTask() {
   RFM.spin(forward, speed, pct);
   RBM.spin(forward, speed, pct);
 
-  if (fabs (error) < 0.2) {
+  if (fabs (error) < 1) {
     LFM.stop(brake);
     LBM.stop(brake);
     RFM.stop(brake);
@@ -84,10 +88,53 @@ void driveDistance(float inches) {
   }
 }
 
+int turnTask () {
+  Brain.Screen.printAt(10,50, "Task intitialized");
+  while(true) {
+    Brain.Screen.printAt(10,70, "Task started");
+    if (turnTaskActive) {
+      Brain.Screen.printAt(10,50, "Robot Turning");
+      float currentAngle = imu.rotation();
+      float error = desiredHeading - currentAngle;
+      Brain.Screen.printAt(10,110, "Angle= %0.1f", currentAngle);
+      Brain.Screen.printAt(10,130, "Error= %0.1f", error);
+
+      if (fabs(error)>0.5) {
+        float speed = error * 0.5;
+        LFM.spin(forward, speed, pct);
+        LBM.spin(forward, speed, pct);
+        RFM.spin(forward, -speed, pct);
+        RBM.spin(forward, -speed, pct);
+
+
+      }
+      else {
+        LFM.stop(brake);
+        LBM.stop(brake);
+        RFM.stop(brake);
+        RBM.stop(brake);
+        turnTaskActive = false;
+      }
+    }
+    wait(20,msec);
+  }
+  return 0;
+}
+void turnToAngle (float degrees) {
+  desiredHeading = degrees;
+  angleTarget = degrees;
+  turnTaskActive = true;
+  while (turnTaskActive) {
+    wait(10,msec);
+  }
+}
 /*---------------------------------------------------------------------------*/
 
 void pre_auton(void) {
 resetDrive();
+while (imu.isCalibrating()) {
+  wait(200, msec);
+}
 }
 
 /*---------------------------------------------------------------------------*/
@@ -101,13 +148,20 @@ resetDrive();
 /*---------------------------------------------------------------------------*/
 
 void autonomous(void) {
-vex::thread dc (driveTask); 
-wait (500, msec); 
-driveDistance(24); 
-dc.interrupt();  
+task dc (driveTask);
+task tc (turnTask);
+wait(500,msec);
+driveDistance(24);
+turnToAngle(90);
 
-Brain.Screen.printAt(10, 20, "final distance: %0.1f", getDistanceInches()); 
+wait (10,sec);
 
+
+tc.stop();
+dc.stop();
+
+Brain.Screen.printAt(10, 50, "final distance: %0.1f", getDistanceInches()); 
+Brain.Screen.printAt(10, 90, "final angle: %0.1f", imu.rotation()); 
 
   // ..........................................................................
 }
