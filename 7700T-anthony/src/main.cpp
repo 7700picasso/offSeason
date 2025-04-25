@@ -16,11 +16,11 @@ competition Competition;
 
 // define your global instances of motors and other devices here
 brain Brain;
-motor LF(PORT8, ratio18_1, false);
-motor RF(PORT10, ratio18_1, true);
-motor LB(PORT18, ratio6_1, false);
-motor RB(PORT9, ratio6_1, true);
-inertial gyro1(PORT1);
+motor LF(PORT4, ratio6_1, true);
+motor RF(PORT19, ratio6_1, false);
+motor LB(PORT2, ratio6_1, true);
+motor RB(PORT21, ratio6_1, false);
+inertial gyro1(PORT10);
 
 float dia = 3.75;
 float gearRatio = 0.6;
@@ -64,7 +64,7 @@ while(true){
 
   float currentDistance = getDistanceInches();
   float error = distanceTarget - currentDistance;
-  float kp = 0.9;
+  float kp = 1.67;
   float speed = error * kp;
 
   LF.spin(forward, speed, pct);
@@ -121,7 +121,8 @@ int turnTask () {
         RF.stop(brake);
         LB.stop(brake);
         RB.stop(brake);
-        //turnTaskActive = false;
+        turnTaskActive = false;
+        Brain.Screen.printAt(50,100,"Turned");
       }
 
 
@@ -175,6 +176,8 @@ void autonomous(void) {
 
   driveDistance(24);
   turnToAngle(90);
+  wait(5, sec);
+  turnToAngle(180);
 
 
   tc.stop();
