@@ -17,13 +17,10 @@ competition Competition;
 brain Brain;
 controller Controller;
 
-motor LF (PORT3, ratio6_1, true);
-motor LM (PORT5, ratio6_1, false);
-motor LB (PORT7, ratio6_1, true);
-
-motor RF (PORT12, ratio6_1, false);
-motor RM (PORT19, ratio6_1, true);
-motor RB (PORT13, ratio6_1, false);
+motor LF (PORT2, ratio6_1, true);
+motor LB (PORT12, ratio6_1, false);
+motor RF (PORT5, ratio6_1, false);
+motor RB (PORT11, ratio6_1, false);
 
 inertial IMU (PORT20);
 
@@ -47,7 +44,7 @@ float getDistanceInches () {
 
 }
 
-void resetDirve() {
+void resetDirve(){
   LF.resetPosition();
   RF.resetPosition();
   IMU.resetRotation();
@@ -60,16 +57,12 @@ while (true) {
   float error = targetdistance - currentDistance;
   float speed = error * 0.5;
 
-  RM.spin(forward, speed, percent);
-  LM.spin (forward, speed, percent);
   LB.spin(forward, speed, percent);
   RB.spin(forward, speed, percent);
   LF.spin(forward, speed, percent);
   RF.spin(forward, speed, percent);
 
   if ((fabs(error) < 0.5)){
-    RM.stop(brake);
-    LM.stop(brake);
     LF.stop(brake);
     RF.stop(brake);
     RB.stop(brake);
@@ -80,26 +73,23 @@ while (true) {
 }
 return 0;
 }
-int turnTask (){
+int turnTask(){
   while(true){
     float currentAngle = IMU.rotation();
     float error = angleTarget - currentAngle;
 
-    RM.spin(reverse, speed, percent);
-    LM.spin(reverse, speed, percent);
     LB.spin(reverse, speed, percent);
     RB.spin(reverse, speed, percent);
     LF.spin(reverse, speed, percent);
     RF.spin(reverse, speed, percent);
     if(fabs(error) > 2);
-    RM.stop(brake);
-    LM.stop(brake);
     turnTaskActive = (false);
   }
 }
 /*---------------------------------------------------------------------------*/
 
 void pre_auton(void) {
+
 
   // All activities that occur before the competition starts
   // Example: clearing encoders, setting servo positions, ...
@@ -116,6 +106,18 @@ void pre_auton(void) {
 /*---------------------------------------------------------------------------*/
 
 void autonomous(void) {
+  task dc (driveTask);
+  task tc(turnTask);
+  wait(500, msec);
+
+
+  driveDistance(24);
+  turnToAngle(90);
+  wait(5, sec);
+  turnToAngle(180);
+
+  tc.stop();
+  dc.stop();
   // ..........................................................................
   // Insert autonomous user code here.
   // ..........................................................................
