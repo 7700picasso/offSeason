@@ -27,6 +27,10 @@ float gearRatio = 0.4;
 float WC = dia * M_PI;
 float distanceTarget = 0;
 bool drivetaskactive = false;
+
+float desireheading = 0;
+float angletarget = 0;
+bool turntaskactive = 0;
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
 
@@ -42,6 +46,7 @@ void resetDrive() {
   RM.resetPosition();
   imu.resetRotation();
   drivetaskactive = false;
+  turntaskactive = false;
 }
 
 int drivetask() {
@@ -79,10 +84,54 @@ void drivedistance(float inches){
   }
 }
 
+
+int turntask () {
+  Brain.Screen.printAt(10,50, "task initialized");
+  while(true) {
+     Brain.Screen.printAt(10,70, "task started");
+    if (turntaskactive){
+       Brain.Screen.printAt(10,50, "robot turning");
+      float currentangle = imu.rotation();
+      float error = desireheading - currentangle;
+      Brain.Screen.printAt(10,100, "Current heading= %0.1f", currentangle);
+      Brain.Screen.printAt(10,120, "Current error= %0.1f", error);
+      if (fabs (error)>1.5){
+        float correction = error * 0.5;
+        LM.spin(forward, correction, pct);
+        Lb.spin(forward, correction, pct);
+        RM.spin(forward, -correction, pct);
+        Rb.spin(forward, -correction, pct);
+      }
+      else{
+        LM.stop(brake);
+        RM.stop(brake);
+        Lb.stop(brake);
+        Rb.stop(brake);
+        turntaskactive = false;
+      }
+    }
+    wait(20,msec);
+  }
+  return 0;
+}
+void turntoangle(float degrees){
+  desireheading = degrees;
+  angletarget = degrees;
+  turntaskactive = true;
+  while (turntaskactive){
+    wait(10,msec);
+  }
+}
+
+
+
 /*---------------------------------------------------------------------------*/
 
 void pre_auton(void) {
 resetDrive();
+while(imu.isCalibrating()){
+  wait(200, msec);
+  }
 }
 
 /*---------------------------------------------------------------------------*/
@@ -98,12 +147,15 @@ resetDrive();
 void autonomous(void) {
   // ..........................................................................
   task dc (drivetask);
+  task tc (turntask);
   wait(500, msec);
   drivedistance(24);
+  turntoangle(90);
 
+  tc.stop();
   dc.stop();
   Brain.Screen.printAt(10, 50, "fina Dist: %0.1f", getdistanceinches());
-
+  Brain.Screen.printAt(10, 90, "final angle: %0.1f", imu.rotation()); 
 
   // ..........................................................................
 }
