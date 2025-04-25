@@ -34,6 +34,40 @@ bool turntaskactive = 0;
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
 
+struct robot{
+  float x =0;
+  float y =0;
+  float heading = 0;
+}myRobot;
+
+void moveforward(float targetinches){
+  float distance = 0;
+  float error = targetinches - distance;
+  float kp = 3.0;
+  float speed = error * kp;
+  Lb.resetPosition();
+  Rb.resetPosition();
+
+  while (fabs (error) > 0.5){
+    distance = (LM.position(deg) +RM.position(deg)) /2.0*WC * gearRatio;
+    error = targetinches - distance;
+    speed = error * kp;
+    LM.spin(forward, speed, pct);
+    RM.spin(forward, speed, pct);
+    Lb.spin(forward, speed, pct);
+    Rb.spin(forward, speed, pct);
+  }
+  LM.stop();
+  LM.stop();
+  LM.stop();
+  LM.stop();
+
+  myrobot.x += targetinches * cos (myRobot.heading * (3.14/180));
+  myRobot.y += targetinches * sin 
+
+}
+
+
 float getdistanceinches() {
   float LMrevs = LM.position(rev) * gearRatio;
   float Rmrevs = RM.position(rev) * gearRatio;
@@ -151,6 +185,9 @@ void autonomous(void) {
   wait(500, msec);
   drivedistance(24);
   turntoangle(90);
+  wait(5,sec);
+  turntoangle(180);
+  drivedistance(24);
 
   tc.stop();
   dc.stop();
