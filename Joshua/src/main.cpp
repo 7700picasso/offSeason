@@ -115,6 +115,12 @@ void goToPoint(double targetX, double tagetY){
 doubletargetAngle = atan2(dx, dy) * (180.0/3.14);
 
 if (fabs(trgetAngle - myRobt.angle)>5.0){
+
+
+
+
+
+  
   turnToAngle(targetAngle);
 }
 
