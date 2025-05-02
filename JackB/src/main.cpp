@@ -2,7 +2,7 @@
 /*                                                                            */
 /*    Module:       main.cpp                                                  */
 /*    Author:       student                                                   */
-/*    Created:      4/3/2025, 6:31:37 PM                                      */
+/*    Created:      4/28/2025, 5:23:04 PM                                     */
 /*    Description:  V5 project                                                */
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
@@ -13,134 +13,97 @@ using namespace vex;
 
 // A global instance of competition
 competition Competition;
-
+vex::brain       Brain;
+motor LB(PORT8, ratio6_1, false);
+motor LF(PORT7, ratio6_1, false);
+motor RB(PORT1, ratio6_1, true);
+motor RF(PORT2, ratio6_1, true);
+inertial Gyro(PORT13);
 // define your global instances of motors and other devices here
-brain Brain;
-motor LF(PORT4, ratio6_1, true);
-motor RF(PORT19, ratio6_1, false);
-motor LB(PORT2, ratio6_1, true);
-motor RB(PORT21, ratio6_1, false);
-inertial gyro1(PORT10);
 
-float dia = 3.75;
-float gearRatio = 0.6;
-float wheelCircumference = dia * M_PI;
+float dia = 3.25;
+float gearRatio = 0.75;
+float WC = dia * M_PI;
 
 float distanceTarget = 0;
-bool driveTaskActivate = false;
-
-float desireheading = 0;
 float angleTarget = 0;
-bool turnTaskActive = false; 
-float kp = 0.5;
-/*---------------------------------------------------------------------------*/
-/*                          Pre-Autonomous Functions                         */
 
+bool driveTaskActive = false;
+bool turnTaskActive = false;
+
+float desiredHeading = 0;
 
 float getDistanceInches(){
-  float LFrevs = LF.position(rev) * gearRatio;
-  float RFrevs = RF.position(rev) * gearRatio;
-  float avgRevs = (LFrevs + RFrevs)/2;
-  return avgRevs * wheelCircumference;
+    float leftDegrees =  LF.position(deg);
+    float rightDegrees =  RF.position(deg);
+
+    float leftMotorRevs = leftDegrees / 360.0;
+    float rightMotorRevs = rightDegrees / 360.0;
+
+    float leftWheelRevs = leftMotorRevs * gearRatio;
+    float rightWheelRevs = rightMotorRevs * gearRatio;
+
+    return ((leftWheelRevs + rightWheelRevs / 2.0)) * (dia *3.14159);
 }
 
 void resetDrive(){
-  LF.resetPosition();
-  RF.resetPosition();
-  gyro1.resetRotation();
-  driveTaskActivate = false;
-  turnTaskActive = false;
+    LF.resetPosition();
+    RF.resetPosition();
+    turnTaskActive = false;
+    driveTaskActive = false;
+}
+int driveTask(){
+    Brain.Screen.printAt(10, 30, "drive task initiated");
 
+    while (true){
+        Brain.Screen.printAt(10, 60, "drive task entered");
+
+        if(driveTaskActive){
+            Brain.Screen.clearScreen();
+            Brain.Screen.printAt(10, 80, "driving");
+
+            float current =  ((LF.position(rev) + LF.position(rev))/2) * M_PI*dia*gearRatio;
+            float error = distanceTarget - current;
+            Brain.Screen.clearScreen();
+            Brain.Screen.printAt(10, 100, "Cur: %.1f Err: %.1f", current, error);
+
+            float speed = error * 4.75;
+            speed = fmax(fmin(speed, 90), -90);
+
+            LF.spin(fwd, speed, pct);
+            RF.spin(fwd, speed, pct);
+            LB.spin(fwd, speed, pct);
+            RB.spin(fwd, speed, pct);
+
+            if(fabs(error) < 0.2){
+            LF.stop();
+            RF.stop();
+            LB.stop();
+            RB.stop();
+             driveTaskActive = false;
+              Brain.Screen.printAt(10, 120, "reached target.");
+            }
+            
+        }
+        wait(20, msec);
+    }
+    return 0;
 }
 
-int driveTask() {
-  Brain.Screen.clearScreen(); 
-  Brain.Screen.printAt(10, 50, "task entered"); 
-while(true){ 
-    Brain.Screen.printAt(10, 50, "task started"); 
-
-  if (driveTaskActivate){
-      Brain.Screen.printAt(10, 50, "task activated"); 
-
-  float currentDistance = getDistanceInches();
-  float error = distanceTarget - currentDistance;
-  float kp = 1.67;
-  float speed = error * kp;
-
-  LF.spin(forward, speed, pct);
-  RF.spin(forward, speed, pct);
-  LB.spin(forward, speed, pct);
-  RB.spin(forward, speed, pct);
-  Brain.Screen.printAt(50,150, "task running" ); 
-
-if (fabs(error) < 0.67) {
-  LF.stop(brake);
-  RF.stop(brake);
-  LB.stop(brake);
-  RB.stop(brake);
-  driveTaskActivate = false;
-  Brain.Screen.printAt(50,150, "task ended" ); 
-}
-  }
-wait(20, msec);
-}
-
-return 0;
-}
-
-void driveDistance(float inches) {
+void driveDistance(double inches){
   resetDrive();
   distanceTarget = inches;
-  driveTaskActivate = true;
-  while (driveTaskActivate){
-    wait(10,msec);
+  driveTaskActive = true;
+  while (driveTaskActive){
+    wait(10, msec);
   }
 }
 
-int turnTask () {
-  Brain.Screen.printAt(10,50,"TASK INITIATED");
-  while(true) {
-    Brain.Screen.printAt(10,70,"TASK STARTED");
-    if (turnTaskActive){
-      Brain.Screen.printAt(10,90,"ROBOT TURNING");
-      float currentAngle = gyro1.rotation();
-      float error = angleTarget - currentAngle;
-      Brain.Screen.printAt(10,110,"ANGLE = %0.1f", currentAngle);
-      Brain.Screen.printAt(10,130,"eroror = %0.1f", error);
-      if (fabs (error)>1.5) {
-        float speed = kp*error;
-        LF.spin(forward, speed, pct);
-        RF.spin(forward, -speed, pct);
-        LB.spin(forward, speed, pct);
-        RB.spin(forward, -speed, pct);
+// define your global instances of motors and other devices here
 
-      }
-
-      else {
-        LF.stop(brake);
-        RF.stop(brake);
-        LB.stop(brake);
-        RB.stop(brake);
-        turnTaskActive = false;
-        Brain.Screen.printAt(50,100,"Turned");
-      }
-
-
-    }
-    wait(20, msec);
-
-  }
-  return 0;
-}
-
-void turnToAngle (float degrees){
-  desireheading = degrees;
-  angleTarget = degrees;
-  turnTaskActive = true;
-  while (turnTaskActive) {
-    wait(10,msec);
-  }
-}
+/*---------------------------------------------------------------------------*/
+/*                          Pre-Autonomous Functions                         */
+/*                                                                           */
 /*  You may want to perform some actions before the competition starts.      */
 /*  Do them in the following function.  You must return from this function   */
 /*  or the autonomous and usercontrol tasks will not be started.  This       */
@@ -148,12 +111,10 @@ void turnToAngle (float degrees){
 /*  not every time that the robot is disabled.                               */
 /*---------------------------------------------------------------------------*/
 
-
 void pre_auton(void) {
-  resetDrive();
-  while(gyro1.isCalibrating()){
-    wait(200, msec);
-  }
+
+  // All activities that occur before the competition starts
+  // Example: clearing encoders, setting servo positions, ...
 }
 
 /*---------------------------------------------------------------------------*/
@@ -168,30 +129,11 @@ void pre_auton(void) {
 
 void autonomous(void) {
   // ..........................................................................
+  task dc(driveTask);
+ // wait(500, msec);
 
-  task dc (driveTask);
-  task tc (turnTask);
-  wait(500, msec);
-
-
-  driveDistance(24);
-  turnToAngle(90);
-  wait(5, sec);
-  turnToAngle(180);
-
-
-  tc.stop();
+  driveDistance(20);
   dc.stop();
-  Brain.Screen.printAt(50,50, "Fina Dist: %0.1f", getDistanceInches());
-  Brain.Screen.printAt(50,50, "Fina Dist: %0.1f", gyro1.rotation());
-
-
-
-
-
-
-
-
   // ..........................................................................
 }
 

@@ -36,6 +36,50 @@ float kp = 0.5;
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
 
+struct robot{
+  float x = 0;
+  float y = 0;
+  float heading = 0;
+}myRobot;
+
+void moveForward(float targetInches){
+  float distance = 0;
+  float error = distanceTarget - distance;
+  float Kp = 1.67;
+  float speed = error * Kp;
+  LF.resetPosition;
+  RF.resetPosition;
+  while (fabs(error) > 0.67){
+    distance = (LF.position(deg) + RF.position(deg))/2.0 * WC * gearRatio;
+    error = distanceTarget - distance;
+    speed = error * Kp;
+    LF.spin(forward, speed, pct);
+    LB.spin(forward, speed, pct);
+    RF.spin(forward, speed, pct);
+    RB.spin(forward, speed, pct);
+  }
+  LF.stop();
+  LB.stop();
+  RF.stop();
+  RB.stop();
+
+  MyRobot.x += targetInches * cos (myRobot.heading*(3.14159265358979323846264338327950288)/180);
+  MyRobot.y += targetInches * sin (mrRobot.heading*(3.14159265358979323846264338327950288)/180);
+}
+
+void turnToTheAngle (float targetDegrees){
+  float Kp = 0.8;
+  float tolerance = 2.0;
+
+  while(true){
+    float error = targetDegrees - gyro1.rotation(deg);
+
+    while (error > 180) error -= 360;
+    while (error < -180) error += 360;
+
+    if (fabs(error) < tolerance) break;
+  }
+}
 
 float getDistanceInches(){
   float LFrevs = LF.position(rev) * gearRatio;

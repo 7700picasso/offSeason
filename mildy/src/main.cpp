@@ -4,7 +4,7 @@
 /*    Author:       team7700                                                  */
 /*    Created:      4/3/2025, 6:33:44 PM                                      */
 /*    Description:  V5 project                                                */
-/*                                                                            */
+/*                b team robot                                                */
 /*----------------------------------------------------------------------------*/
 
 #include "vex.h"
@@ -37,12 +37,62 @@ bool turnTaskActive = false;
 /*                          Pre-Autonomous Functions                         */
 /*                                                                           */
  
+struct robot {
+  float x = 0;
+  float y = 0;
+  float heading = 0;
+} myRobot;
+
+void moveForward(float targetInches) {
+  float distance = 0;
+  float error = targetInches - distance;
+  float Kp = 3.0;
+  float speed = error*Kp;
+  LFM.resetPosition();
+  RFM.resetPosition();
+
+  while(fabs (error) > 0.5) {
+    distance = (LFM.position(deg)+RFM.position(deg))/2.0 * WC * gearRatio;
+    error = targetInches - distance;
+    speed = error * Kp;
+    LFM.spin(forward, speed, pct);
+    LBM.spin(forward, speed, pct);
+    RFM.spin(forward, speed, pct);
+    RBM.spin(forward, speed, pct);
+  }
+  LFM.stop(brake);
+  LBM.stop(brake);
+  RFM.stop(brake);
+  LBM.stop(brake);
+
+
+  myRobot.x += targetInches * cos(myRobot.heading * 3.14/180);
+  myRobot.y += targetInches * sin(myRobot.heading * 3.14/180);
+}
+
+
 float getDistanceInches() {
   float LFrevs = LFM.position(rev) * gearRatio;
   float RFrevs = RFM.position(rev) * gearRatio;
   float avgRevs = (LFrevs + RFrevs)/2 ;
   return avgRevs * WC;
 }
+
+void turnToAngle(float targetDegrees) {
+double kp = 0.8;
+double tolerance = 2.0;
+
+  while(true) {
+    float error = targetDegrees - imu.rotation(deg);
+
+    while (error > 180) error -= 360;
+    while (error < -180) error += 360;
+
+    if (fabs(error) < tolerance) break;
+
+  }
+}
+
 
 void resetDrive() {
   LFM.resetPosition();
@@ -154,8 +204,10 @@ wait(500,msec);
 driveDistance(24);
 turnToAngle(90);
 
-wait (10,sec);
 
+
+wait(5,sec);
+//turnToAngle(180);
 
 tc.stop();
 dc.stop();
