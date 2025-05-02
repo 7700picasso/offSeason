@@ -14,11 +14,12 @@ using namespace vex;
 // A global instance of competition
 competition Competition;
 brain Brain;
-motor LB(PORT11, ratio6_1, true);
-motor RB(PORT20, ratio6_1, false);
-motor LM(PORT6, ratio6_1, true);
-motor RM(PORT7, ratio6_1, false);
-inertial imu(PORT10);
+controller Controller1;
+motor LB(PORT19, ratio18_1, true); // green motors :(
+motor RB(PORT12, ratio18_1, false);
+motor LM(PORT20, ratio18_1, true);
+motor RM(PORT11, ratio18_1, false);
+inertial imu(PORT15);
 
 // define your global instances of motors and other devices here
 float dia = 3.25;
@@ -34,6 +35,7 @@ bool turnTaskActive = false;
 /*---------------------------------------------------------------------------*/
 /*                          Pre-Autonomous Functions                         */
 
+
 void stopDrive(){
   LM.stop(brake);
   RM.stop(brake);
@@ -45,7 +47,11 @@ struct robot{
   float x = 0;
   float y = 0;
   float heading = 0;
+
+  robot(double x_init = 0, double y_init = 0, double heading_init = 0)
+  : x(x_init), y(y_init), heading(heading_init) {}
 }myRobot;
+
 
 void moveForward(float targetInches){
   float distance = 0;
@@ -71,18 +77,60 @@ void moveForward(float targetInches){
   myRobot.y += targetInches * sin(myRobot.heading * (3.14/180));
 }
 
+
 void turnToAngle(double targetDegrees){
     double kp = 0.8;
     double tolerance = 2.0;
     while(true){
-      double error = targetDegrees - imu.rotation();
+      double currentHeading = imu.heading();
+      if(currentHeading > 180) currentHeading -= 360;
+      Brain.Screen.printAt(10, 100, "Normalized Heading: %0.1f", currentHeading);
 
+      // keep error between -180 and 180
+      double error = targetDegrees - currentHeading;
       while(error > 180) error -= 360;
       while(error < -180) error += 360;
+      Brain.Screen.printAt(10, 115, "Current: %0.1f, Target: %0.1f, Error: %0.1f", currentHeading, targetDegrees, error);
 
       if(fabs(error) < tolerance) break;
+      double speed = error * kp;
+      LM.spin(fwd, speed, pct);
+      RM.spin(fwd, -speed, pct);
+      LB.spin(fwd, speed, pct);
+      RB.spin(fwd, -speed, pct);
+      wait(20, msec);
   }
+  LM.stop();
+  RM.stop();
+  LB.stop();
+  RB.stop();
+  myRobot.heading = targetDegrees;
 }
+
+
+void goToPoint(double targetX, double targetY){
+  // 1. Fubd direction to target
+  double dx = targetX - myRobot.x;
+  double dy = targetY - myRobot.y;
+
+  // 2. Calculate target angle (0 = East)
+  double targetAngle = atan2(dy, dx) * (180.0/3.14);
+  Brain.Screen.printAt(10, 160, "heading = ", targetAngle);
+
+  // 3. Only turn if NOT already facing the target (+-5 tolerance)
+  if(fabs(targetAngle - myRobot.heading) > 5.0){
+    turnToAngle(targetAngle);
+  }
+
+  // 4. Move straight
+  double distance = sqrt(dx * dx + dy * dy);
+  moveForward(distance);
+
+  // 5. WOOHOO!
+  Brain.Screen.printAt(10, 80, "Reached (%0.1f, %0.1f)!", targetX, targetY);
+  Controller1.rumble(".");
+}
+
 
 float getDistanceInches(){
   float LMRevs = LM.position(rev) * gearRatio;
@@ -90,6 +138,7 @@ float getDistanceInches(){
   float avgRevs = (LMRevs + RMRevs) / 2;
   return avgRevs * WC;
 }
+
 
 void resetDrive(){
   LM.resetPosition();
@@ -100,6 +149,7 @@ void resetDrive(){
   driveTaskActive = false;
   turnTaskActive = false;
 }
+
 
 int driveTask(){
   while(true){
@@ -129,6 +179,7 @@ int driveTask(){
   return 0;
 }
 
+
 void driveDistance(float inches){
   resetDrive();
   distanceTarget = inches;
@@ -137,6 +188,7 @@ void driveDistance(float inches){
     wait(10, msec);
   }
 }
+
 
 int turnTask(){
   Brain.Screen.printAt(10, 50, "Task Initiated");
@@ -169,6 +221,7 @@ int turnTask(){
   return 0;
 }
 
+
 void turnDistance(float degrees){
   desiredHeading = degrees;
   turnTarget = degrees;
@@ -178,15 +231,15 @@ void turnDistance(float degrees){
   }
 }
 
+
 /*---------------------------------------------------------------------------*/
 
 void pre_auton(void) {
-  // All activities that occur before the competition starts
-  // Example: clearing encoders, setting servo positions, ...
-  resetDrive();
-  while(imu.isCalibrating()){
-    wait(200, msec);
-  }
+  imu.calibrate();
+  while(imu.isCalibrating()) wait(50, msec);
+  myRobot = {72, 12, 90};
+  Brain.Screen.printAt(10, 20, "IMU Heading: %0.1f (Should be 90)", imu.heading());
+  wait(1, sec);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -219,8 +272,11 @@ void autonomous(void) {
   Brain.Screen.printAt(10, 70, "final distance: %0.1f", getDistanceInches());
   */
  
-  moveForward(24);
+  // moveForward(24);
   // turnToAngle(90);
+
+  goToPoint(72, 24);
+  goToPoint(120, 24);
 
   // ..........................................................................
 }
